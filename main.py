@@ -8,7 +8,7 @@ import shutil
 import zipfile
 from io import BytesIO
 
-APP_VERSION = "2.0.0"
+APP_VERSION = "2.0.1"
 UPDATE_URL = "https://raw.githubusercontent.com/mrfarmer2/all-in-one-logna/main/main.py"
 VERSION_FILE_URL = "https://raw.githubusercontent.com/mrfarmer2/all-in-one-logna/main/version.txt"
 
@@ -72,8 +72,8 @@ class App(tk.Tk):
         self.converter_tab = ttk.Frame(tab_control)
 
         tab_control.add(self.downloader_tab, text="Video Downloader")
-        tab_control.add(self.settings_tab, text="Settings / Updates")
         tab_control.add(self.converter_tab, text="Video Converter")
+        tab_control.add(self.settings_tab, text="Settings / Updates")
         tab_control.pack(expand=1, fill="both")
 
         self.output_folder = os.getcwd()
