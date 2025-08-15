@@ -16,6 +16,15 @@ def replace_file(src, dst):
             time.sleep(0.5)
     return False
 
+def is_file_locked(filepath):
+    """Check if Windows has the file locked."""
+    if os.name != "nt": return False
+    try:
+        os.rename(filepath, filepath)
+        return False
+    except OSError:
+        return True
+
 def main():
     """
     Usage:
@@ -47,15 +56,6 @@ def main():
             subprocess.Popen([target_file], shell=True)
         except Exception as e:
             print(f"Failed to relaunch: {e}")
-
-def is_file_locked(filepath):
-    """Check if Windows has the file locked."""
-    if os.name != "nt": return False
-    try:
-        os.rename(filepath, filepath)
-        return False
-    except OSError:
-        return True
 
 if __name__ == "__main__":
     main()

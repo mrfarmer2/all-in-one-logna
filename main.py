@@ -1,13 +1,14 @@
-# main.py
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import subprocess, threading, queue, re, os, sys, requests, shutil, zipfile, time
 
-APP_VERSION = "1.3.0"
+APP_VERSION = "1.3.1"
 VERSION_FILE_URL = "https://raw.githubusercontent.com/mrfarmer2/all-in-one-logna/main/version.txt"
 EXE_UPDATE_URL = "https://github.com/mrfarmer2/all-in-one-logna/releases/latest/download/main.exe"
 PY_UPDATE_URL  = "https://raw.githubusercontent.com/mrfarmer2/all-in-one-logna/main/main.py"
+UPDATER_VERSION_FILE_URL = "https://raw.githubusercontent.com/mrfarmer2/all-in-one-logna/main/updater_version.txt"
 UPDATER_EXE    = "updater.exe"
+UPDATER_LOCAL_VERSION = "1.0.1"
 
 BASE_DIR = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.getcwd()
 YT_DLP_EXEC = os.path.join(BASE_DIR, "yt-dlp.exe")
@@ -70,27 +71,25 @@ def kill_stray_processes():
                 subprocess.run(["pkill","-f",name],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     except: pass
 
-# ---------- yt-dlp runner ----------
-def run_yt_dlp(cmd_args,progress_q,done_q):
+# ---------- Update updater ----------
+def check_updater_update(status_cb=None):
     try:
-        proc=subprocess.Popen(cmd_args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,
-                              text=True,creationflags=NO_CONSOLE)
-        while True:
-            line=proc.stdout.readline()
-            if not line and proc.poll() is not None: break
-            if not line: time.sleep(0.02); continue
-            line=line.strip(); percent=None; eta=None
-            if line.startswith("[download]"):
-                m=re.search(r"(\d+(?:\.\d+)?)%",line)
-                e=re.search(r"ETA\s+([0-9:]+)",line)
-                if m: percent=float(m.group(1))
-                if e: eta=e.group(1)
-            progress_q.put({"percent":percent,"eta":eta,"text":line})
-        ret=proc.wait()
-        if ret==0: done_q.put(("ok","Done"))
-        else: done_q.put(("err",f"yt-dlp exited with code {ret}"))
+        r = requests.get(UPDATER_VERSION_FILE_URL, timeout=15)
+        latest = r.text.strip()
+        if latest != UPDATER_LOCAL_VERSION:
+            if status_cb: status_cb("Updating updater…")
+            new_updater = os.path.join(BASE_DIR,"updater_new.exe")
+            url = "https://github.com/mrfarmer2/all-in-one-logna/releases/latest/download/updater.exe"
+            r2 = requests.get(url, stream=True)
+            with open(new_updater,"wb") as f:
+                for chunk in r2.iter_content(8192):
+                    if chunk: f.write(chunk)
+            old_updater = os.path.join(BASE_DIR,UPDATER_EXE)
+            if os.path.exists(old_updater): os.remove(old_updater)
+            shutil.move(new_updater, old_updater)
+            if status_cb: status_cb("Updater updated.")
     except Exception as e:
-        done_q.put(("err",str(e)))
+        if status_cb: status_cb(f"Updater update failed: {e}")
 
 # ---------- GUI ----------
 class App(tk.Tk):
@@ -118,6 +117,7 @@ class App(tk.Tk):
     def bootstrap_tools(self):
         ensure_yt_dlp_installed(self.set_status)
         ensure_ffmpeg_installed(self.set_status)
+        check_updater_update(self.set_status)
         self.set_status("Ready.")
 
     # ------------------ update system ------------------
@@ -145,7 +145,6 @@ class App(tk.Tk):
             messagebox.showerror("Error",f"Download failed: {e}")
             return
 
-        # Launch updater.exe for EXE replacement if not dev mode
         if not self.developer_mode:
             updater_path=os.path.join(BASE_DIR,UPDATER_EXE)
             if not os.path.exists(updater_path):
